@@ -56,7 +56,7 @@ namespace FolMinder2.Services
                 {
                     continue;
                 }
-                Debug.WriteLine($"GetFolderItemList. Pinned: {fi.Pinned} Path: {fi.Path}");
+                Log.Debug($"GetFolderItemList. Pinned: {fi.Pinned} Path: {fi.Path}");
                 _folderItemList.Add(fi);
                 pathSet.Add(fi.Path);
             }
@@ -67,7 +67,7 @@ namespace FolMinder2.Services
                     continue;
                 }
                 var fi = new FolderItem(false, wp.Path);
-                Debug.WriteLine($"GetFolderItemList. Pinned: {fi.Pinned} Path: {fi.Path}");
+                Log.Debug($"GetFolderItemList. Pinned: {fi.Pinned} Path: {fi.Path}");
                 _folderItemList.Add(fi);
             }
             _folderItemList.Sort();
@@ -87,7 +87,7 @@ namespace FolMinder2.Services
                     var win = shellWindows.Item(i);
                     if (win == null || win!.Document == null)
                     {
-                        Debug.WriteLine($"win: {win}, win.Document: {win!.Document}");
+                        Log.Debug($"win: {win}, win.Document: {win!.Document}");
                         continue;
                     }
                     string path = win!.Document.Folder.Self.Path;
@@ -99,11 +99,11 @@ namespace FolMinder2.Services
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine(ex);
+                    Log.Error(ex, "GetWndPaths");
                 }
             }
             sw.Stop();
-            Debug.WriteLine($"GetWndPaths elapsed: {sw.Elapsed.TotalMilliseconds} ms");
+            Log.Debug($"GetWndPaths elapsed: {sw.Elapsed.TotalMilliseconds} ms");
             return wndPathList;
         }
     }
