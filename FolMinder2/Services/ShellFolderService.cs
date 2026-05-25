@@ -5,7 +5,7 @@ using System.Text;
 using SHDocVw;
 using FolMinder2.Models;
 using System.Windows.Controls;
-using FolMinder2.Platform;
+using FolMinder2.Infrastructure;
 
 namespace FolMinder2.Services
 {

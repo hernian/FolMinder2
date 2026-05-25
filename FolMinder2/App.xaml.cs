@@ -10,6 +10,7 @@ using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using System.IO;
+using FolMinder2.Infrastructure;
 
 namespace FolMinder2
 {
