@@ -346,6 +346,17 @@ namespace FolMinder2
         private void Menu_About_Click(object sender, RoutedEventArgs e)
         {
             Debug.WriteLine("Menu_About_Click");
+            menuAbout.IsEnabled = false;
+            menuConfig.IsEnabled = false;
+            try
+            {
+                MessageBox.Show(this, "FolMinder2", "FolMinder2", MessageBoxButton.OK, MessageBoxImage.Question);
+            }
+            finally
+            {
+                menuConfig.IsEnabled = true;
+                menuAbout.IsEnabled = true;
+            }
         }
         private void Menu_Open_Click(object sender, RoutedEventArgs e)
         {
@@ -357,7 +368,17 @@ namespace FolMinder2
         private void Menu_Config_Click(object sender, RoutedEventArgs e)
         {
             Debug.WriteLine("Menu_Config_Click");
-            _viewModel.Config();
+            menuAbout.IsEnabled = false;
+            menuConfig.IsEnabled = false;
+            try
+            {
+                _viewModel.Config();
+            }
+            finally
+            {
+                menuConfig.IsEnabled = true;
+                menuAbout.IsEnabled = true;
+            }
         }
 
         // メニュー：終了
@@ -384,10 +405,9 @@ namespace FolMinder2
         }
         private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            var selected = _viewModel.Items.FirstOrDefault(fivm => fivm.Key == e.Key);
-            if (selected is not null)
+            if (_viewModel.OnKey(e.Key))
             {
-                _viewModel.SelectedItem = selected;
+                e.Handled = true;
             }
         }
     }

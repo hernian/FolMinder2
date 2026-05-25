@@ -21,7 +21,7 @@ namespace FolMinder2
         private static ServiceProvider ConfigureServices()
         {
             var services = new ServiceCollection();
-            services.AddSingleton<ISettingsStorage, SettingsStorage>();
+            services.AddSingleton<ISettingsService, SettingsService>();
             services.AddSingleton<IShellExecuteService, ShellExecuteService>();
             services.AddSingleton<IHotKeyService, HotKeyService>();
             services.AddSingleton<IShellFolderService, ShellFolderService>();

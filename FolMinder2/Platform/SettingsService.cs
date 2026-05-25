@@ -8,27 +8,30 @@ namespace FolMinder2.Platform
     public record FolMinderSettings(
         string[] PinnedFolders,
         bool PinSelectedFolder,
+        bool QuickSelect,
         HotKey HotKey);
 
-    public interface ISettingsStorage
+    public interface ISettingsService
     {
         IReadOnlyList<string> PinnedFolders { get; set; }
         bool PinSelectedFolder { get; set; }
+        bool QuickSelect { get; set; }
         HotKey HotKey { get; set; }
         void Save();
     }
 
-    public class SettingsStorage : ISettingsStorage
+    public class SettingsService : ISettingsService
     {
-        private readonly TagLog<SettingsStorage> Log = new();
+        private readonly TagLog<SettingsService> Log = new();
 
         public IReadOnlyList<string> PinnedFolders { get; set; } = [];
         public bool PinSelectedFolder { get; set; } = true;
+        public bool QuickSelect { get; set; } = false;
         public HotKey HotKey { get; set; } = HotKey.Default;
 
         private string _settingsJsonPath;
 
-        public SettingsStorage()
+        public SettingsService()
         {
             var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             var dir = Path.Combine(localAppData, "Hernian", "FolMinder2");
@@ -42,6 +45,7 @@ namespace FolMinder2.Platform
                     Log.Debug($"Loaded PinnedFolder: {path}");
                 }
                 Log.Debug($"Loaded PinSelectedFoldes: {settings.PinSelectedFolder}");
+                Log.Debug($"Loaded QuickSelect: {settings.QuickSelect}");
                 Log.Debug($"Loaded HotKey: {settings.HotKey}");
                 this.PinnedFolders = settings.PinnedFolders;
                 this.PinSelectedFolder = settings.PinSelectedFolder;
@@ -62,11 +66,13 @@ namespace FolMinder2.Platform
                     Log.Debug($"Save. PinnedFolder: {path}");
                 }
                 Log.Debug($"Save. PinSelectedFolder: {this.PinSelectedFolder}");
+                Log.Debug($"Save. QuickSelect: {this.QuickSelect}");
                 Log.Debug($"Save. HotKey: {this.HotKey}");
                 var settings = new FolMinderSettings(
-                    this.PinnedFolders.ToArray(),
-                    this.PinSelectedFolder,
-                    this.HotKey);
+                    PinnedFolders: this.PinnedFolders.ToArray(),
+                    PinSelectedFolder: this.PinSelectedFolder,
+                    QuickSelect: this.QuickSelect,
+                    HotKey: this.HotKey);
                 using var stream = new FileStream(_settingsJsonPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 JsonSerializer.Serialize(stream, settings);
             }
