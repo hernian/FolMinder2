@@ -40,6 +40,7 @@ namespace FolMinder2
         private bool _isExplicitClose = false;
         private readonly DispatcherTimer _updateWindowSizeTimer;
         private readonly DispatcherTimer _updateDisplayNameTimer;
+        private readonly Toast _toast;
         private Task _updateTask = Task.CompletedTask;
         private CancellationTokenSource? _cts;
 
@@ -78,6 +79,8 @@ namespace FolMinder2
             };
             _updateDisplayNameTimer.Tick += updateDisplayNameTimer_Tick;
 
+            _toast = new Toast(this);
+
             SystemEvents.SessionEnding += SystemEvents_SessionEnding;
         }
 
@@ -94,6 +97,7 @@ namespace FolMinder2
 
             if (_isExplicitClose)
             {
+                _toast.Dispose();
                 _viewModel.Shutdown();
                 trayIcon.Dispose();
                 _hotKeyService.Shutdown();

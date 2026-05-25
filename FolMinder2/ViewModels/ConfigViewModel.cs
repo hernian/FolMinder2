@@ -1,10 +1,10 @@
 ﻿using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
-using FolMinder2.Platform;
 using System.Windows.Input;
 using FolMinder2.Models;
 using CommunityToolkit.Mvvm.Input;
 using System.Windows.Navigation;
+using FolMinder2.Infrastructure;
 
 namespace FolMinder2.ViewModels
 {

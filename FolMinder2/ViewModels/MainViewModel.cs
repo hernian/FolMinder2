@@ -1,12 +1,15 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Input;
+using System.Xml.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FolMinder2.Infrastructure;
+using FolMinder2.Models;
 using FolMinder2.Platform;
 using FolMinder2.Presentation;
 using FolMinder2.Services;
-using FolMinder2.Models;
+using Serilog;
 
 namespace FolMinder2.ViewModels
 {
@@ -58,81 +61,110 @@ namespace FolMinder2.ViewModels
 
         public void Initialize()
         {
-            var hotKey = _settingsService.HotKey;
-            _hotKeyService.UpdateHotKey(hotKey);
+            CommandHarness(nameof(Initialize), () =>
+            {
+                var hotKey = _settingsService.HotKey;
+                _hotKeyService.UpdateHotKey(hotKey);
+            });
         }
 
         public void Update()
         {
-            this.SelectedItem = null;
-            this.Items.Clear();
-            // フォルダー一覧とKey生成を結合して短い方だけ周る
-            foreach (var (folderItem, key) in _shellFolderService.GetFolderItemList().Zip(GetKeys()))
+            CommandHarness(nameof(Update), () =>
             {
-                var fivm = new FolderItemViewModel(folderItem, key.ToString(), key);
-                Debug.WriteLine($"Update. fivm: {fivm.Pinned}, {fivm.DisplayName}, {fivm.Source.Path}");
-                this.Items.Add(fivm);
-            }
-            if (this.Items.Count > 0)
-            {
-                this.SelectedItem = this.Items[0];
-            }
+                this.SelectedItem = null;
+                this.Items.Clear();
+                // フォルダー一覧とKey生成を結合して短い方だけ周る
+                foreach (var (folderItem, key) in _shellFolderService.GetFolderItemList().Zip(GetKeys()))
+                {
+                    var fivm = new FolderItemViewModel(folderItem, key.ToString(), key);
+                    Debug.WriteLine($"Update. fivm: {fivm.Pinned}, {fivm.DisplayName}, {fivm.Source.Path}");
+                    this.Items.Add(fivm);
+                }
+                if (this.Items.Count > 0)
+                {
+                    this.SelectedItem = this.Items[0];
+                }
+            });
         }
 
         public void Config()
         {
-            var configViewModel = new ConfigViewModel(_settingsService);
-            var e = new DialogRequiredEventArgs(configViewModel);
-            this.DialogRequired?.Invoke(this, e);
-            if (e.DialogResult == true)
+            CommandHarness(nameof(Config), () =>
             {
-                var hotKey = _settingsService.HotKey;
-                _hotKeyService.UpdateHotKey(hotKey);
-            }
+                var configViewModel = new ConfigViewModel(_settingsService);
+                var e = new DialogRequiredEventArgs(configViewModel);
+                this.DialogRequired?.Invoke(this, e);
+                if (e.DialogResult == true)
+                {
+                    var hotKey = _settingsService.HotKey;
+                    _hotKeyService.UpdateHotKey(hotKey);
+                }
+            });
         }
 
         public bool OnKey(Key key)
         {
-            var selectedFivm = this.Items.FirstOrDefault(fivm => fivm.Key == key);
-            if (selectedFivm is null)
+            return CommandHarness(nameof(OpenExplorer), () =>
             {
-                return false;
-            }
-            this.SelectedItem = selectedFivm;
-            if (_settingsService.QuickSelect)
-            {
-                this.OpenFolder();
-            }
-            return true;
+                if (key == Key.Space)
+                {
+                    if (this.SelectedItem is not null)
+                    {
+                        this.SelectedItem.Pinned = !this.SelectedItem.Pinned;
+                    }
+                    return true;
+                }
+                var selectedFivm = this.Items.FirstOrDefault(fivm => fivm.Key == key);
+                if (selectedFivm is null)
+                {
+                    return false;
+                }
+                this.SelectedItem = selectedFivm;
+                if (_settingsService.QuickSelect)
+                {
+                    this.OpenFolder();
+                }
+                return true;
+            }, false);
         }
+
 
         public void Shutdown()
         {
-            this.Save();   
+            CommandHarness(nameof(Shutdown), () =>
+            {
+                this.Save();
+            });
         }
 
         [RelayCommand]
         private void OpenExplorer()
         {
-            Debug.WriteLine("OpenExplorer");
-            _shellExecuteService.OpenExplorer();
-            this.WindowHideRequired?.Invoke(this, EventArgs.Empty);
+            CommandHarness(nameof(OpenExplorer), () =>
+            {
+                _shellExecuteService.OpenExplorer(ShellExecuteConstants.GUID_PC);
+                this.WindowHideRequired?.Invoke(this, EventArgs.Empty);
+                this.RegisterPinnedFolders();
+            });
         }
 
         [RelayCommand(CanExecute = nameof(CanOpenFolder))]
         public void OpenFolder()
         {
-            Debug.WriteLine("OpenFolder");
-            if (this.SelectedItem is not null)
+            CommandHarness(nameof(OpenFolder), () =>
             {
-                if (_settingsService.PinSelectedFolder)
+                if (this.SelectedItem is not null)
                 {
-                    this.SelectedItem.Pinned = true;
+                    if (_settingsService.PinSelectedFolder)
+                    {
+                        this.SelectedItem.Pinned = true;
+                    }
+                    _shellExecuteService.OpenFolder(this.SelectedItem.Source.Path);
                 }
-                _shellExecuteService.OpenFolder(this.SelectedItem.Source.Path);
-            }
-            this.WindowHideRequired?.Invoke(this, EventArgs.Empty);
-            this.RegisterPinnedFolders();
+                this.WindowHideRequired?.Invoke(this, EventArgs.Empty);
+                this.RegisterPinnedFolders();
+            });
         }
 
         private bool CanOpenFolder()
@@ -143,9 +175,11 @@ namespace FolMinder2.ViewModels
         [RelayCommand]
         private void Close()
         {
-            Debug.WriteLine("Close");
-            this.WindowHideRequired?.Invoke(this, EventArgs.Empty);
-            this.RegisterPinnedFolders();
+            CommandHarness(nameof(Close), () =>
+            {
+                this.WindowHideRequired?.Invoke(this, EventArgs.Empty);
+                this.RegisterPinnedFolders();
+            });
         }
 
         private void RegisterPinnedFolders()
@@ -164,6 +198,55 @@ namespace FolMinder2.ViewModels
                 ?? new string[] { };
             _settingsService.PinnedFolders = pinnedFolders;
             _settingsService.Save();
+        }
+
+        private void CommandHarness(string name, Action action)
+        {
+            Log.Debug($"{name} enter.");
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                HandleException(ex, name);
+            }
+            finally
+            {
+                Log.Debug($"{name} leave.");
+            }
+        }
+
+        private T CommandHarness<T>(string name, Func<T> func, T defaultValue)
+        {
+            Log.Debug($"{name} enter.");
+            try
+            {
+                return func();
+            }
+            catch (Exception ex)
+            {
+                HandleException(ex, name);
+            }
+            finally
+            {
+                Log.Debug($"{name} leave.");
+            }
+            return defaultValue;
+        }
+
+        private void HandleException(Exception ex, string name)
+        {
+            if (ex is OpenFolderException opex)
+            {
+                Log.Error(ex, $"Exception occured in processing command. Command: {name}");
+                ToastMessage.SendError($"フォルダーを開けません。\n{opex.Path}");
+            }
+            else
+            {
+                Log.Error(ex, $"Exception occured in processing command. Command: {name}");
+                ToastMessage.SendError($"エラーです");
+            }
         }
     }
 }

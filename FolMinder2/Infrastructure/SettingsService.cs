@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 
-namespace FolMinder2.Platform
+namespace FolMinder2.Infrastructure
 {
     public record FolMinderSettings(
         string[] PinnedFolders,
