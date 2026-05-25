@@ -77,7 +77,8 @@
                                     <DataTemplate>
                                         <CheckBox IsChecked="{Binding Pinned, Mode=TwoWay}"
                                                   HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"/>
+                                                  VerticalAlignment="Center"
+                                                  Focusable="False"/>
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
