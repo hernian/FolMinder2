@@ -10,7 +10,7 @@
         Title="FolMinder2の設定"
         SizeToContent="WidthAndHeight"
         WindowStyle="SingleBorderWindow"
-        WindowStartupLocation="CenterOwner"
+        WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
         Icon="/Assets/folminder.ico"
         ResizeMode="NoResize">

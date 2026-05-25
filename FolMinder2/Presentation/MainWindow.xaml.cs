@@ -65,13 +65,14 @@ namespace FolMinder2
             this.PreviewKeyDown += MainWindow_PreviewKeyDown;
             
             folderListView.Loaded += folderListView_Loaded;
+            folderListView.MouseDoubleClick += folderListView_MouseDoubleClick;
+
             _updateWindowSizeTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(10)
             };
-            folderListView.MouseDoubleClick += folderListView_MouseDoubleClick;
-
             _updateWindowSizeTimer.Tick += updateWindowSizeTimer_Tick;
+
             _updateDisplayNameTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(500)   // ユーザー操作が止まったと判断する時間[ms]
@@ -160,18 +161,19 @@ namespace FolMinder2
         {
             var helper = new WindowInteropHelper(this);
             var h = helper.Handle;
-            Debug.WriteLine($"MainWindow_SourceInitialized. hWnd: {h:x8}");
+            Log.Debug($"MainWindow_SourceInitialized. hWnd: {h:x8}");
             var hwndSource = HwndSource.FromHwnd(h);
             hwndSource.AddHook(WndProc);
             _hotKeyService.Initialize(this, HOTKEY_ID);
             trayIcon.ForceCreate();
 
             _viewModel.Initialize();
+            MoveToCenterOfWorkingArea();
         }
 
         private void MainWindow_ContentRendered(object? sender, EventArgs e)
         {
-            Debug.WriteLine($"MainWindow_ContentRendered. _initialized: {_initialized}");
+            Log.Debug($"MainWindow_ContentRendered. _initialized: {_initialized}");
             if (_initialized)
             {
                 return;
@@ -183,7 +185,7 @@ namespace FolMinder2
 
         private void UpdateWindowSize()
         {
-            Debug.WriteLine("UpdateWindowSize");
+            Log.Debug("UpdateWindowSize");
             // 再度 Height を適用
             this.SizeToContent = SizeToContent.Manual;
             this.SizeToContent = SizeToContent.Height;
@@ -205,12 +207,14 @@ namespace FolMinder2
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            Debug.WriteLine("MainWindow_Loaded");
+            Log.Debug("MainWindow_Loaded");
+            MoveToCenterOfWorkingArea();
         }
 
 
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
         {
+            Log.Debug("MainWindow_SizeChanged");
             if (!_initialized)
             {
                 return;
@@ -364,11 +368,13 @@ namespace FolMinder2
         private void Menu_Open_Click(object sender, RoutedEventArgs e)
         {
             Debug.WriteLine("Menu_Open_Click");
+            Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, Width: {this.ActualWidth} Height: {this.ActualHeight}");
             UpdateContents();
         }
         private void Menu_Config_Click(object sender, RoutedEventArgs e)
         {
             Debug.WriteLine("Menu_Config_Click");
+            Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, Width: {this.ActualWidth} Height: {this.ActualHeight}");
             menuAbout.IsEnabled = false;
             menuConfig.IsEnabled = false;
             try
@@ -392,6 +398,7 @@ namespace FolMinder2
         private void TrayIcon_LeftMouseDoubleClick(object sender, EventArgs e)
         {
             Log.Debug("TrayIcon_LeftMouseDoubleClick");
+            Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, Width: {this.ActualWidth} Height: {this.ActualHeight}");
             UpdateContents();
         }
 
@@ -415,6 +422,17 @@ namespace FolMinder2
             {
                 e.Handled = true;
             }
+        }
+
+        private void MoveToCenterOfWorkingArea()
+        {
+            Log.Debug($"{nameof(MoveToCenterOfWorkingArea)} enver");
+            var workingArea = ScreenHelper.GetWorkingArea(this);
+            var left = Math.Max(workingArea.Left + (workingArea.Width - this.ActualWidth) / 2, workingArea.Left);
+            var top = Math.Max(workingArea.Top + (workingArea.Height - this.ActualHeight) / 2, workingArea.Top);
+            this.Left = left;
+            this.Top = top;
+            Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, Width: {this.ActualWidth} Height: {this.ActualHeight}");
         }
     }
 }
