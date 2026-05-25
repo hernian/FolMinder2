@@ -13,6 +13,7 @@
         Width="400"
         MinHeight="120"
         MinWidth="400"
+        ResizeMode="NoResize"
         Icon="/Assets/folminder.ico">
 
     <Window.Resources>
