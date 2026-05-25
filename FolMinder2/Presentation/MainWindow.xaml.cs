@@ -42,6 +42,7 @@ namespace FolMinder2
         private readonly Toast _toast;
         private Task _updateTask = Task.CompletedTask;
         private CancellationTokenSource? _cts;
+        private readonly IReadOnlyList<MenuItem> _modalMenuItems;
 
         public MainWindow(
             MainViewModel viewModel,
@@ -82,6 +83,8 @@ namespace FolMinder2
             _toast = new Toast(this);
 
             SystemEvents.SessionEnding += SystemEvents_SessionEnding;
+
+            _modalMenuItems = [menuAbout, menuConfig];
         }
 
         private void SystemEvents_SessionEnding(object sender, SessionEndingEventArgs e)
@@ -353,16 +356,14 @@ namespace FolMinder2
         private void Menu_About_Click(object sender, RoutedEventArgs e)
         {
             Debug.WriteLine("Menu_About_Click");
-            menuAbout.IsEnabled = false;
-            menuConfig.IsEnabled = false;
+            EnableModalMenuItem(false);
             try
             {
                 MessageBox.Show(this, "FolMinder2", "FolMinder2", MessageBoxButton.OK, MessageBoxImage.Question);
             }
             finally
             {
-                menuConfig.IsEnabled = true;
-                menuAbout.IsEnabled = true;
+                EnableModalMenuItem(true);
             }
         }
         private void Menu_Open_Click(object sender, RoutedEventArgs e)
@@ -375,16 +376,14 @@ namespace FolMinder2
         {
             Debug.WriteLine("Menu_Config_Click");
             Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, Width: {this.ActualWidth} Height: {this.ActualHeight}");
-            menuAbout.IsEnabled = false;
-            menuConfig.IsEnabled = false;
+            EnableModalMenuItem(false);
             try
             {
                 _viewModel.Config();
             }
             finally
             {
-                menuConfig.IsEnabled = true;
-                menuAbout.IsEnabled = true;
+                EnableModalMenuItem(true);
             }
         }
 
@@ -433,6 +432,14 @@ namespace FolMinder2
             this.Left = left;
             this.Top = top;
             Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, Width: {this.ActualWidth} Height: {this.ActualHeight}");
+        }
+
+        private void EnableModalMenuItem(bool enabled)
+        {
+            foreach (var item in _modalMenuItems)
+            {
+                item.IsEnabled = enabled;
+            }
         }
     }
 }
