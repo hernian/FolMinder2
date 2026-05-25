@@ -405,10 +405,9 @@ namespace FolMinder2
         }
         private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            var selected = _viewModel.Items.FirstOrDefault(fivm => fivm.Key == e.Key);
-            if (selected is not null)
+            if (_viewModel.OnKey(e.Key))
             {
-                _viewModel.SelectedItem = selected;
+                e.Handled = true;
             }
         }
     }

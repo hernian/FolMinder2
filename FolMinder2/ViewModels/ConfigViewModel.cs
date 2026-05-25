@@ -4,6 +4,7 @@ using FolMinder2.Platform;
 using System.Windows.Input;
 using FolMinder2.Models;
 using CommunityToolkit.Mvvm.Input;
+using System.Windows.Navigation;
 
 namespace FolMinder2.ViewModels
 {
@@ -32,12 +33,20 @@ namespace FolMinder2.ViewModels
         public event EventHandler? CancelRequired;
 
         [ObservableProperty]
+        private bool _pinSelectedFolder;
+        [ObservableProperty]
+        private bool _quickSelect;
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(AcceptCommand))]
         private bool _withAlt;
         [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(AcceptCommand))]
         private bool _withControl;
         [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(AcceptCommand))]
         private bool _withShift;
         [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(AcceptCommand))]
         private bool _withWin;
 
         [ObservableProperty]
@@ -46,23 +55,27 @@ namespace FolMinder2.ViewModels
         [NotifyCanExecuteChangedFor(nameof(AcceptCommand))]
         private NameKey? _selectedItem;
 
-        private ISettingsStorage _settingsStorage;
+        private ISettingsService _settingsStorage;
 
-        public ConfigViewModel(ISettingsStorage settingsStorage)
+        public ConfigViewModel(ISettingsService settingsService)
         {
-            _settingsStorage = settingsStorage;
-            var hotKey = settingsStorage.HotKey;
-            _withAlt = hotKey.Alt;
-            _withControl = hotKey.Control;
-            _withShift = hotKey.Shift;
-            _withWin = hotKey.Win;
-            _items = CreateNameKeys();
-            _selectedItem = _items.FirstOrDefault(nk => nk.Key == hotKey.Key);
+            _settingsStorage = settingsService;
+            this.PinSelectedFolder = _settingsStorage.PinSelectedFolder;
+            this.QuickSelect = _settingsStorage.QuickSelect;
+            var hotKey = settingsService.HotKey;
+            this.WithAlt = hotKey.Alt;
+            this.WithControl = hotKey.Control;
+            this.WithShift = hotKey.Shift;
+            this.WithWin = hotKey.Win;
+            this.Items = CreateNameKeys();
+            this.SelectedItem = _items.FirstOrDefault(nk => nk.Key == hotKey.Key);
         }
 
         [RelayCommand(CanExecute = nameof(CanAccept))]
         private void Accept()
         {
+            _settingsStorage.PinSelectedFolder = this.PinSelectedFolder;
+            _settingsStorage.QuickSelect = this.QuickSelect;
             var hotKey = new HotKey(
                 Alt: this.WithAlt,
                 Control: this.WithControl,
@@ -75,7 +88,15 @@ namespace FolMinder2.ViewModels
         }
         private bool CanAccept()
         {
-            return this.SelectedItem is not null;
+            if (this.SelectedItem is null)
+            {
+                return false;
+            }
+            if (!this.WithAlt && !this.WithControl && !this.WithShift && !this.WithWin)
+            {
+                return false;
+            }
+            return true;
         }
 
         [RelayCommand]

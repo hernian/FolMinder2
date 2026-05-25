@@ -14,129 +14,126 @@
         MinHeight="120"
         MinWidth="400"
         Icon="/Assets/folminder.ico">
+
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="10,5,10,5"/>
+            <Setter Property="Margin" Value="10,5,10,5"/>
+        </Style>
+        <Style TargetType="ListView">
+            <Setter Property="Margin" Value="10,5,10,5"/>
+        </Style>
+    </Window.Resources>
     <Window.InputBindings>
         <KeyBinding Key="Enter"
                     Command="{Binding OpenFolderCommand}"/>
         <KeyBinding Key="Esc"
                     Command="{Binding CloseCommand}"/>
     </Window.InputBindings>
-   
-    <Grid Margin="10,5,10,5">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" MinHeight="64"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <tb:TaskbarIcon x:Name="trayIcon"
-                        IconSource="/Assets/folminder.ico"
-                        ToolTipText="FolMinder2">
-            <tb:TaskbarIcon.ContextMenu>
-                <ContextMenu>
-                    <MenuItem x:Name="menuAbout"
-                              Header="バージョン情報"
-                              Click="Menu_About_Click"/>
-                    <MenuItem x:Name="menuConfig"
-                              Header="設定..."
-                              Click="Menu_Config_Click"/>
-                    <MenuItem x:Name="menuOpen"
-                              Header="開く"
-                              Click="Menu_Open_Click"/>
-                    <Separator />
-                    <MenuItem Header="終了"
-                              Click="Menu_Exit_Click"/>
-                </ContextMenu>
-            </tb:TaskbarIcon.ContextMenu>
-        </tb:TaskbarIcon>
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                      VerticalScrollBarVisibility="Auto">
+
+    <Border Margin="10,10,10,5">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" MinHeight="64"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <tb:TaskbarIcon x:Name="trayIcon"
+                            IconSource="/Assets/folminder.ico"
+                            ToolTipText="FolMinder2">
+                <tb:TaskbarIcon.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem x:Name="menuAbout"
+                                  Header="バージョン情報"
+                                  Click="Menu_About_Click"/>
+                        <MenuItem x:Name="menuConfig"
+                                  Header="設定..."
+                                  Click="Menu_Config_Click"/>
+                        <MenuItem x:Name="menuOpen"
+                                  Header="開く"
+                                  Click="Menu_Open_Click"/>
+                        <Separator />
+                        <MenuItem Header="終了"
+                                  Click="Menu_Exit_Click"/>
+                    </ContextMenu>
+                </tb:TaskbarIcon.ContextMenu>
+            </tb:TaskbarIcon>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
            
-            <ListView Grid.Row="0"
-                      x:Name="folderListView"
-                      ItemsSource="{Binding Items}"
-                      SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                      VirtualizingStackPanel.IsVirtualizing="False">
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn x:Name="colPinned"
-                                        Width="30">
-                            <GridViewColumn.Header>
-                                <TextBlock Text="📌"
-                                           ToolTip="ピン留め"/>
-                            </GridViewColumn.Header>
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <CheckBox IsChecked="{Binding Pinned, Mode=TwoWay}"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn x:Name="colKey"
-                                        Width="40">
-                            <GridViewColumn.HeaderContainerStyle>
-                                <Style TargetType="GridViewColumnHeader">
-                                    <Setter Property="HorizontalContentAlignment" Value="Left" />
-                                </Style>
-                            </GridViewColumn.HeaderContainerStyle>
-                            <GridViewColumn.Header>キー</GridViewColumn.Header>
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding KeyName}"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn x:Name="colName"
-                                        Width="Auto">
-                            <GridViewColumn.HeaderContainerStyle>
-                                <Style TargetType="GridViewColumnHeader">
-                                    <Setter Property="HorizontalContentAlignment" Value="Left" />
-                                </Style>
-                            </GridViewColumn.HeaderContainerStyle>
-                            <GridViewColumn.Header>フォルダー</GridViewColumn.Header>
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding DisplayName}"
-                                           TextTrimming="CharacterEllipsis"
-                                           TextWrapping="NoWrap"/>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                    </GridView>
-                </ListView.View>
-            </ListView>
-        </ScrollViewer>
-        <CheckBox Grid.Row="1"
-                  Content="選択したフォルダーをピン留めする"
-                  VerticalAlignment="Center"
-                  VerticalContentAlignment="Center"
-                  HorizontalAlignment="Left"
-                  IsChecked="{Binding PinSelectedFolder}"
-                  Padding="10,5,10,5"
-                  Margin="10,5,10,5"/>
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <Button Grid.Column="0"
-                    Content="エクスプローラーを開く"
-                    Command="{Binding OpenExplorerCommand}"
-                    Padding="10,5,10,5"
-                    Margin="10,5,10,5"/>
-            <Button Grid.Column="2"
-                    Content="フォルダーを開く"
-                    Command="{Binding OpenFolderCommand}"
-                    Padding="10,5,10,5"
-                    Margin="10,5,10,5"/>
-            <Button Grid.Column="3"
-                    Content="閉じる"
-                    Command="{Binding CloseCommand}"
-                    Padding="10,5,10,5"
-                    Margin="10,5,10,5"/>
+                <ListView Grid.Row="0"
+                          x:Name="folderListView"
+                          ItemsSource="{Binding Items}"
+                          SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                          VirtualizingStackPanel.IsVirtualizing="False">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn x:Name="colPinned"
+                                            Width="30">
+                                <GridViewColumn.Header>
+                                    <TextBlock Text="📌"
+                                               ToolTip="ピン留め"/>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding Pinned, Mode=TwoWay}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn x:Name="colKey"
+                                            Width="40">
+                                <GridViewColumn.HeaderContainerStyle>
+                                    <Style TargetType="GridViewColumnHeader">
+                                        <Setter Property="HorizontalContentAlignment" Value="Left" />
+                                    </Style>
+                                </GridViewColumn.HeaderContainerStyle>
+                                <GridViewColumn.Header>キー</GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding KeyName}"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn x:Name="colName"
+                                            Width="Auto">
+                                <GridViewColumn.HeaderContainerStyle>
+                                    <Style TargetType="GridViewColumnHeader">
+                                        <Setter Property="HorizontalContentAlignment" Value="Left" />
+                                    </Style>
+                                </GridViewColumn.HeaderContainerStyle>
+                                <GridViewColumn.Header>フォルダー</GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="NoWrap"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </ScrollViewer>
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0"
+                        Content="エクスプローラーを開く"
+                        Command="{Binding OpenExplorerCommand}"/>
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right">
+                    <Button Content="フォルダーを開く"
+                            Command="{Binding OpenFolderCommand}"/>
+                    <Button Content="閉じる"
+                            Command="{Binding CloseCommand}"/>
+                </StackPanel>
+            </Grid>
         </Grid>
-    </Grid>
+    </Border>
 </Window>

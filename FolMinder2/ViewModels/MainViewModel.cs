@@ -32,40 +32,33 @@ namespace FolMinder2.ViewModels
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(OpenFolderCommand))]
         private FolderItemViewModel? _selectedItem;
-        [ObservableProperty]
-        private bool _pinSelectedFolder;
 
         private readonly IShellFolderService _shellFolderService;
         private readonly IShellExecuteService _shellExecuteService;
         private readonly IHotKeyService _hotKeyService;
-        private readonly ISettingsStorage _settingsStorage;
+        private readonly ISettingsService _settingsService;
 
         public MainViewModel(
             IShellFolderService shellFolderService,
             IShellExecuteService shellExecuteService,
             IHotKeyService hotKeyService,
-            ISettingsStorage settingsStorage)
+            ISettingsService settingsService)
         {
             _shellFolderService = shellFolderService;
             _shellExecuteService = shellExecuteService;
             _hotKeyService = hotKeyService;
-            _settingsStorage = settingsStorage;
+            _settingsService = settingsService;
 
-            _shellFolderService.ClearPinnedFolders();
-            foreach (var path in _settingsStorage.PinnedFolders)
-            {
-                var folderItem = new FolderItem(pinned: true, path);
-                _shellFolderService.AddPinnedFolder(folderItem);
-            }
+            var pinnedFolders = _settingsService.PinnedFolders.Select(path => new FolderItem(pinned: true, path));
+            _shellFolderService.RegisterPinnedFolders(pinnedFolders);
 
-            this.PinSelectedFolder = _settingsStorage.PinSelectedFolder;
             this.Items = new();
             this.Update();
         }
 
         public void Initialize()
         {
-            var hotKey = _settingsStorage.HotKey;
+            var hotKey = _settingsService.HotKey;
             _hotKeyService.UpdateHotKey(hotKey);
         }
 
@@ -88,14 +81,29 @@ namespace FolMinder2.ViewModels
 
         public void Config()
         {
-            var configViewModel = new ConfigViewModel(_settingsStorage);
+            var configViewModel = new ConfigViewModel(_settingsService);
             var e = new DialogRequiredEventArgs(configViewModel);
             this.DialogRequired?.Invoke(this, e);
             if (e.DialogResult == true)
             {
-                var hotKey = _settingsStorage.HotKey;
+                var hotKey = _settingsService.HotKey;
                 _hotKeyService.UpdateHotKey(hotKey);
             }
+        }
+
+        public bool OnKey(Key key)
+        {
+            var selectedFivm = this.Items.FirstOrDefault(fivm => fivm.Key == key);
+            if (selectedFivm is null)
+            {
+                return false;
+            }
+            this.SelectedItem = selectedFivm;
+            if (_settingsService.QuickSelect)
+            {
+                this.OpenFolder();
+            }
+            return true;
         }
 
         public void Shutdown()
@@ -117,19 +125,14 @@ namespace FolMinder2.ViewModels
             Debug.WriteLine("OpenFolder");
             if (this.SelectedItem is not null)
             {
-                if (this.PinSelectedFolder)
+                if (_settingsService.PinSelectedFolder)
                 {
                     this.SelectedItem.Pinned = true;
                 }
                 _shellExecuteService.OpenFolder(this.SelectedItem.Source.Path);
             }
             this.WindowHideRequired?.Invoke(this, EventArgs.Empty);
-
-            _shellFolderService.ClearPinnedFolders();
-            foreach (var fivm in this.Items)
-            {
-                _shellFolderService.AddPinnedFolder(fivm.Source);
-            }
+            this.RegisterPinnedFolders();
         }
 
         private bool CanOpenFolder()
@@ -142,18 +145,15 @@ namespace FolMinder2.ViewModels
         {
             Debug.WriteLine("Close");
             this.WindowHideRequired?.Invoke(this, EventArgs.Empty);
-
-            _shellFolderService.ClearPinnedFolders();
-            foreach (var fivm in this.Items)
-            {
-                _shellFolderService.AddPinnedFolder(fivm.Source);
-            }
+            this.RegisterPinnedFolders();
         }
 
-
-        partial void OnPinSelectedFolderChanging(bool value)
+        private void RegisterPinnedFolders()
         {
-            Debug.WriteLine($"OnPinSelectedFolderChanging. value: {value}");
+            _shellFolderService.RegisterPinnedFolders(
+                this.Items
+                .Where(fivm => fivm.Pinned)
+                .Select(fivm => fivm.Source));
         }
 
         private void Save()
@@ -162,9 +162,8 @@ namespace FolMinder2.ViewModels
                 .Where(fivm => fivm.Pinned)
                 .Select(fivm => fivm.Source.Path).ToArray()
                 ?? new string[] { };
-            _settingsStorage.PinnedFolders = pinnedFolders;
-            _settingsStorage.PinSelectedFolder = this.PinSelectedFolder;
-            _settingsStorage.Save();
+            _settingsService.PinnedFolders = pinnedFolders;
+            _settingsService.Save();
         }
     }
 }

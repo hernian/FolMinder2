@@ -11,8 +11,7 @@ namespace FolMinder2.Services
 {
     public interface IShellFolderService
     {
-        void ClearPinnedFolders();
-        void AddPinnedFolder(FolderItem pinnedFolder);
+        void RegisterPinnedFolders(IEnumerable<FolderItem> pinnedFolders);
         IEnumerable<FolderItem> GetFolderItemList();
     }
 
@@ -33,16 +32,17 @@ namespace FolMinder2.Services
             Log.Debug($"ShellFolderService. ctor elapsed: {sw.Elapsed.TotalMilliseconds} ms");
         }
 
-        public void ClearPinnedFolders()
+        public void RegisterPinnedFolders(IEnumerable<FolderItem> pinnedFolders)
         {
-            Log.Debug("ClearPinnedFolders");
             _folderItemList.Clear();
-        }
-
-        public void AddPinnedFolder(FolderItem pinnedFolder)
-        {
-            Log.Debug($"AddPinnedFolder: Pinned: {pinnedFolder.Pinned}, Path: {pinnedFolder.Path}");
-            _folderItemList.Add(pinnedFolder);
+            foreach (var folder in pinnedFolders)
+            {
+                if (folder.Pinned)
+                {
+                    Log.Debug($"SetPinnedFolders: Pinned: {folder.Pinned}, Path: {folder.Path}");
+                    _folderItemList.Add(folder);
+                }
+            }
         }
 
         public IEnumerable<FolderItem> GetFolderItemList()
