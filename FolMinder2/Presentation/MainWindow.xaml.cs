@@ -3,20 +3,18 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
-using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
+using FolMinder2.Infrastructure;
 using FolMinder2.Platform;
 using FolMinder2.Presentation;
 using FolMinder2.Services;
 using FolMinder2.ViewModels;
-using H.NotifyIcon;
 using Microsoft.Win32;
-using Serilog;
 
 namespace FolMinder2
 {
@@ -34,6 +32,7 @@ namespace FolMinder2
         // ウィンドウの最大サイズを求める
         private const float WORKING_AREA_SCALE = 0.7f;
 
+        private readonly TagLog<MainWindow> Log = new();
         private readonly MainViewModel _viewModel;
         private readonly IHotKeyService _hotKeyService;
         private bool _initialized = false;
@@ -365,9 +364,7 @@ namespace FolMinder2
         private void Menu_Open_Click(object sender, RoutedEventArgs e)
         {
             Debug.WriteLine("Menu_Open_Click");
-            this.Show();
-            this.WindowState = WindowState.Normal;
-            this.Activate();
+            UpdateContents();
         }
         private void Menu_Config_Click(object sender, RoutedEventArgs e)
         {
@@ -391,6 +388,11 @@ namespace FolMinder2
             Debug.WriteLine("Menu_Exit_Click");
             _isExplicitClose = true; // 明示的な終了フラグを立てる
             Application.Current.Shutdown();
+        }
+        private void TrayIcon_LeftMouseDoubleClick(object sender, EventArgs e)
+        {
+            Log.Debug("TrayIcon_LeftMouseDoubleClick");
+            UpdateContents();
         }
 
         private void viewModel_DialogRequired(object? sender, DialogRequiredEventArgs e)
