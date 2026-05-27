@@ -88,6 +88,16 @@ namespace FolMinder2.ViewModels
             });
         }
 
+        public void About()
+        {
+            CommandHarness(nameof(Config), () =>
+            {
+                var aboutViewModel = new AboutViewModel();
+                var e = new DialogRequiredEventArgs(aboutViewModel);
+                this.DialogRequired?.Invoke(this, e);
+            });
+        }
+
         public void Config()
         {
             CommandHarness(nameof(Config), () =>
