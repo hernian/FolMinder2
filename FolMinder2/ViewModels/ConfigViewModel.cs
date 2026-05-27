@@ -60,9 +60,9 @@ namespace FolMinder2.ViewModels
         public ConfigViewModel(ISettingsService settingsService)
         {
             _settingsStorage = settingsService;
-            this.PinSelectedFolder = _settingsStorage.PinSelectedFolder;
-            this.QuickSelect = _settingsStorage.QuickSelect;
-            var hotKey = settingsService.HotKey;
+            this.PinSelectedFolder = _settingsStorage.Settings.PinSelectedFolder;
+            this.QuickSelect = _settingsStorage.Settings.QuickSelect;
+            var hotKey = settingsService.Settings.HotKey;
             this.WithAlt = hotKey.Alt;
             this.WithControl = hotKey.Control;
             this.WithShift = hotKey.Shift;
@@ -74,15 +74,15 @@ namespace FolMinder2.ViewModels
         [RelayCommand(CanExecute = nameof(CanAccept))]
         private void Accept()
         {
-            _settingsStorage.PinSelectedFolder = this.PinSelectedFolder;
-            _settingsStorage.QuickSelect = this.QuickSelect;
+            _settingsStorage.Settings.PinSelectedFolder = this.PinSelectedFolder;
+            _settingsStorage.Settings.QuickSelect = this.QuickSelect;
             var hotKey = new HotKey(
                 Alt: this.WithAlt,
                 Control: this.WithControl,
                 Shift: this.WithShift,
                 Win: this.WithWin,
                 Key: this.SelectedItem!.Key);
-            _settingsStorage.HotKey = hotKey;
+            _settingsStorage.Settings.HotKey = hotKey;
             _settingsStorage.Save();
             this.AcceptRequired?.Invoke(this, EventArgs.Empty);
         }

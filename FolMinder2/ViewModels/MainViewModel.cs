@@ -52,7 +52,7 @@ namespace FolMinder2.ViewModels
             _hotKeyService = hotKeyService;
             _settingsService = settingsService;
 
-            var pinnedFolders = _settingsService.PinnedFolders.Select(path => new FolderItem(pinned: true, path));
+            var pinnedFolders = _settingsService.Settings.PinnedFolders.Select(path => new FolderItem(pinned: true, path));
             _shellFolderService.RegisterPinnedFolders(pinnedFolders);
 
             this.Items = new();
@@ -63,7 +63,7 @@ namespace FolMinder2.ViewModels
         {
             CommandHarness(nameof(Initialize), () =>
             {
-                var hotKey = _settingsService.HotKey;
+                var hotKey = _settingsService.Settings.HotKey;
                 _hotKeyService.UpdateHotKey(hotKey);
             });
         }
@@ -97,7 +97,7 @@ namespace FolMinder2.ViewModels
                 this.DialogRequired?.Invoke(this, e);
                 if (e.DialogResult == true)
                 {
-                    var hotKey = _settingsService.HotKey;
+                    var hotKey = _settingsService.Settings.HotKey;
                     _hotKeyService.UpdateHotKey(hotKey);
                 }
             });
@@ -121,7 +121,7 @@ namespace FolMinder2.ViewModels
                     return false;
                 }
                 this.SelectedItem = selectedFivm;
-                if (_settingsService.QuickSelect)
+                if (_settingsService.Settings.QuickSelect)
                 {
                     this.OpenFolder();
                 }
@@ -156,7 +156,7 @@ namespace FolMinder2.ViewModels
             {
                 if (this.SelectedItem is not null)
                 {
-                    if (_settingsService.PinSelectedFolder)
+                    if (_settingsService.Settings.PinSelectedFolder)
                     {
                         this.SelectedItem.Pinned = true;
                     }
@@ -170,6 +170,14 @@ namespace FolMinder2.ViewModels
         private bool CanOpenFolder()
         {
             return this.SelectedItem is not null;
+        }
+
+        public void OnFolderSelectedByKey()
+        {
+            if (_settingsService.Settings.QuickSelect)
+            {
+                OpenFolder();
+            }
         }
 
         [RelayCommand]
@@ -196,7 +204,7 @@ namespace FolMinder2.ViewModels
                 .Where(fivm => fivm.Pinned)
                 .Select(fivm => fivm.Source.Path).ToArray()
                 ?? new string[] { };
-            _settingsService.PinnedFolders = pinnedFolders;
+            _settingsService.Settings.PinnedFolders = pinnedFolders;
             _settingsService.Save();
         }
 
