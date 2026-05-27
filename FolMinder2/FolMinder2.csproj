@@ -7,6 +7,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\folminder.ico</ApplicationIcon>
+    <Authors>Hernian &lt;hernianrunner@gmail.com&gt;</Authors>
+    <Company>Hernian</Company>
+    <Copyright>©2026 Hernian &lt;hernianrunner@gmail.com&gt;</Copyright>
+    <PackageIcon>64.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,9 +40,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Assets\64.png" />
     <Resource Include="Assets\folminder.ico">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Assets\64.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

@@ -340,7 +340,7 @@ namespace FolMinder2
             EnableModalMenuItem(false);
             try
             {
-                MessageBox.Show(this, "FolMinder2", "FolMinder2", MessageBoxButton.OK, MessageBoxImage.Question);
+                _viewModel.About();
             }
             finally
             {
@@ -415,6 +415,16 @@ namespace FolMinder2
                 };
                 configDialg.ShowDialog();
                 e.DialogResult = configDialg.DialogResult;
+                return;
+            }
+            else if (e.ViewModel is AboutViewModel aboutViewModel)
+            {
+                var aboutDialog = new AboutWindow()
+                {
+                    Owner = this,
+                    DataContext = aboutViewModel
+                };
+                aboutDialog.ShowDialog();
                 return;
             }
             throw new NotImplementedException();
