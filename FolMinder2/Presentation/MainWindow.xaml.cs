@@ -10,11 +10,13 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using FolMinder2.Infrastructure;
+using FolMinder2.Models;
 using FolMinder2.Platform;
 using FolMinder2.Presentation;
 using FolMinder2.Services;
 using FolMinder2.ViewModels;
 using Microsoft.Win32;
+using static FolMinder2.Platform.WinApiHelper;
 
 namespace FolMinder2
 {
@@ -35,10 +37,7 @@ namespace FolMinder2
         private readonly TagLog<MainWindow> Log = new();
         private readonly MainViewModel _viewModel;
         private readonly IHotKeyService _hotKeyService;
-        private bool _initialized = false;
         private bool _isExplicitClose = false;
-        private readonly DispatcherTimer _updateWindowSizeTimer;
-        private readonly DispatcherTimer _updateDisplayNameTimer;
         private readonly Toast _toast;
         private Task _updateTask = Task.CompletedTask;
         private CancellationTokenSource? _cts;
@@ -54,49 +53,49 @@ namespace FolMinder2
             _hotKeyService = hotKeyService;
 
             this.DataContext = viewModel;
-            _viewModel.Items.CollectionChanged += Items_CollectionChanged;
             _viewModel.WindowHideRequired += viewModel_WindowHideRequired;
             _viewModel.DialogRequired += viewModel_DialogRequired;
             _hotKeyService.HotKeyPressed += (_, __) => this.UpdateContents();
 
             this.SourceInitialized += MainWindow_SourceInitialized;
-            this.ContentRendered += MainWindow_ContentRendered;
-            this.Loaded += MainWindow_Loaded;
-            this.SizeChanged += MainWindow_SizeChanged;
             this.PreviewKeyDown += MainWindow_PreviewKeyDown;
             
-            folderListView.Loaded += folderListView_Loaded;
             folderListView.MouseDoubleClick += folderListView_MouseDoubleClick;
-
-            _updateWindowSizeTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(10)
-            };
-            _updateWindowSizeTimer.Tick += updateWindowSizeTimer_Tick;
-
-            _updateDisplayNameTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(500)   // ユーザー操作が止まったと判断する時間[ms]
-            };
-            _updateDisplayNameTimer.Tick += updateDisplayNameTimer_Tick;
 
             _toast = new Toast(this);
 
-            SystemEvents.SessionEnding += SystemEvents_SessionEnding;
+            SystemEvents.SessionEnding += (_, __) => this.Shutdown();
 
             _modalMenuItems = [menuAbout, menuConfig];
         }
 
-        private void SystemEvents_SessionEnding(object sender, SessionEndingEventArgs e)
+        private async void Shutdown()
         {
-            Debug.WriteLine("SystemEvents_SessionEnding");
+            Log.Debug("Shutdown enter");
+            // _isExplicitCloseがfalseだと、OnClosingでMainWindowを非表示にするだけになってしまう。
+            // _isExplicitCloseがtrueだと、普通にMainWindowが閉じるようになる。
             _isExplicitClose = true;
+            if (_cts is not null)
+            {
+                _cts.Cancel();
+                try
+                {
+                    await _updateTask;
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Shutdown. While cancelling _updateTask");
+                }
+                _cts.Dispose();
+                _cts = null;
+            }
             Application.Current.Shutdown();
+            Log.Debug("Shutdown leave");
         }
 
         protected override void OnClosing(CancelEventArgs e)
         {
-            Debug.WriteLine($"OnClosing. isExplicitClose: {_isExplicitClose}");
+            Log.Debug($"OnClosing. isExplicitClose: {_isExplicitClose}");
 
             if (_isExplicitClose)
             {
@@ -111,44 +110,10 @@ namespace FolMinder2
                 this.Hide();
             }
             base.OnClosing(e);
+            Log.Debug("OnClosing leave");
         }
 
-        private void updateWindowSizeTimer_Tick(object? sender, EventArgs e)
-        {
-            _updateWindowSizeTimer.Stop();
-            this.UpdateWindowSize();
-            Dispatcher.BeginInvoke(() =>
-            {
-                if (_viewModel.Items.Count > 0)
-                {
-                    var firstItem = folderListView.ItemContainerGenerator.ContainerFromIndex(0) as ListViewItem;
-                    firstItem?.Focus();
-                }
-            }, DispatcherPriority.Render);
-        }
 
-        private void Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            Debug.WriteLine("Items_CollectionChanged");
-            if (!_initialized)
-            {
-                return;
-            }
-            // CollectionChangeが連続発火しても良いようにデバウンス処理する
-            _updateWindowSizeTimer.Stop();
-            _updateWindowSizeTimer.Start();
-        }
-
-        private void folderListView_Loaded(object sender, RoutedEventArgs e)
-        {
-            Debug.WriteLine("FolderListView_Loaded");
-            ListViewHelper.DisableColumnResize(folderListView);
-            var workingArea = ScreenHelper.GetWorkingArea(this);
-            var left = Math.Max((workingArea.Width - this.Width) / 2, workingArea.Left);
-            var top = Math.Max((workingArea.Height - this.Height) / 2, workingArea.Top);
-            this.Left = left;
-            this.Top = top;
-        }
         private void folderListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             var item = (e.OriginalSource as FrameworkElement)?.DataContext;
@@ -164,86 +129,20 @@ namespace FolMinder2
         {
             var helper = new WindowInteropHelper(this);
             var h = helper.Handle;
-            Log.Debug($"MainWindow_SourceInitialized. hWnd: {h:x8}");
+            Log.Debug($"MainWindow_SourceInitialized enter. hWnd: {h:x8}");
             var hwndSource = HwndSource.FromHwnd(h);
             hwndSource.AddHook(WndProc);
             _hotKeyService.Initialize(this, HOTKEY_ID);
             trayIcon.ForceCreate();
-
             _viewModel.Initialize();
-            MoveToCenterOfWorkingArea();
-        }
-
-        private void MainWindow_ContentRendered(object? sender, EventArgs e)
-        {
-            Log.Debug($"MainWindow_ContentRendered. _initialized: {_initialized}");
-            if (_initialized)
-            {
-                return;
-            }
-            _initialized = true;
-            _updateWindowSizeTimer.Stop();
-            _updateWindowSizeTimer.Start();
-        }
-
-        private void UpdateWindowSize()
-        {
-            Log.Debug("UpdateWindowSize");
-            // 再度 Height を適用
-            this.SizeToContent = SizeToContent.Manual;
-            this.SizeToContent = SizeToContent.Height;
-            // TODO: ここで高さをworkingAreaの高さの0.7倍以下に調整すること
-            var workingArea = ScreenHelper.GetWorkingArea(this);
-            var widthMax = workingArea.Width * WORKING_AREA_SCALE;
-            var width = Math.Min(GetPreferredWindowWidth(), widthMax);
-            Debug.WriteLine($"ActualWidth: {this.ActualWidth:F1}, PreferredWindowWidth: {width:F1}");
-            this.Width = width;
-
-            Dispatcher.BeginInvoke(() =>
-            {
-                var left = Math.Max((workingArea.Width - width) / 2, workingArea.Left);
-                var top = Math.Max((workingArea.Height - this.Height) / 2, workingArea.Top);
-                this.Left = left;
-                this.Top = top;
-            }, DispatcherPriority.Render);
-        }
-
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            Log.Debug("MainWindow_Loaded");
-            MoveToCenterOfWorkingArea();
-        }
-
-
-        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            Log.Debug("MainWindow_SizeChanged");
-            if (!_initialized)
-            {
-                return;
-            }
-            _updateDisplayNameTimer.Stop();
-            _updateDisplayNameTimer.Start();
-            AdjustColNameWidth();
-        }
-        private async void updateDisplayNameTimer_Tick(object? sender, EventArgs e)
-        {
-            _updateDisplayNameTimer.Stop();
-            StartUpdateDisplayNames();
-            try
-            {
-                await _updateTask;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex);
-            }
-            _cts = null;
+            Log.Debug($"MainWindow_SourceInitialized. leave");
         }
 
         private double GetPreferredWindowWidth()
         {
+            Log.Debug("GetPreferredWindowWidth enter");
             var lvGap = this.ActualWidth - folderListView.ActualWidth;
+            Log.Debug($"lvGap: {lvGap:F1}, ActualWidth: {this.ActualWidth:F1}, folderListView.ActualWidth: {folderListView.ActualWidth:F1}");
             // カラム内最大幅の文字列と実際のカラム幅のギャップ
             // 計算で求めるのが難しいので、定数でごまかす
             var colGap = COLUMN_MARGIN_FOR_PREFERRED_SIZE;
@@ -252,35 +151,39 @@ namespace FolMinder2
             var maxColWidth = 0.0;
             var truncatedNameBuilder = CreateTruncatedNameBuilder();
             var items = (ObservableCollection<FolderItemViewModel>)folderListView.ItemsSource;
-
             foreach (var fivm in items)
             {
                 var colWidth = truncatedNameBuilder.MeasureTextWidth(fivm.Source.Path);
-                // Debug.WriteLine($"GetPreferredWindowWidth. colWidth: {colWidth:F1}");
+                // Log.Debug($"GetPreferredWindowWidth. colWidth: {colWidth:F1}, Path: {fivm.Source.Path}");
                 maxColWidth = Math.Max(maxColWidth, colWidth);
             }
+            Log.Debug($"maxColWidth: {maxColWidth:F1}");
             var preferredWidth = maxColWidth + lvGap + colGap + colPinned.Width + colKey.Width + SystemParameters.VerticalScrollBarWidth;
             if (preferredWidth > this.MaxWidth)
             {
                 preferredWidth = this.MaxWidth;
             }
+            Log.Debug($"GetPreferredWindowWidth leave. preferredWidth: {preferredWidth:F1}");
             return preferredWidth;
         }
 
         private void AdjustColNameWidth()
         {
+            Log.Debug("AdjustColNameWidth enter");
             var usedWidgh = colPinned.Width
                 + colKey.Width
                 + SystemParameters.VerticalScrollBarWidth
                 + 8;
             colName.Width = Math.Max(0, folderListView.ActualWidth - usedWidgh);
+            Log.Debug("AdjustColNameWidth leave");
         }
 
         private void StartUpdateDisplayNames()
         {
+            Log.Debug("StartUpdateDisplayNames enter");
             if (_cts is not null)
             {
-                Debug.WriteLine("StartUpdateDisplayNames overlap detected.");
+                Log.Debug("StartUpdateDisplayNames overlap detected.");
                 _cts.Cancel();
                 try
                 {
@@ -294,11 +197,12 @@ namespace FolMinder2
             }
             _cts = new CancellationTokenSource();
             _updateTask = UpdateDisplayNamesAsync(_cts.Token);
+            Log.Debug("StartUpdateDisplayNames leave");
         }
 
         private async Task UpdateDisplayNamesAsync(CancellationToken ct)
         {
-            Debug.WriteLine($"UpdateDisplayNamesAsync. colName.ActualWidth: {colName.ActualWidth:F1}");
+            Log.Debug($"UpdateDisplayNamesAsync enter. colName.ActualWidth: {colName.ActualWidth:F1}");
             var items = (ObservableCollection<FolderItemViewModel>?)folderListView.ItemsSource;
             if (items == null)
             {
@@ -320,7 +224,7 @@ namespace FolMinder2
                 }
             }
             sw.Stop();
-            Debug.WriteLine($"UpdateDisplayNamesAsync. {sw.Elapsed.TotalMilliseconds:F3} ms");
+            Log.Debug($"UpdateDisplayNamesAsync leave. {sw.Elapsed.TotalMilliseconds:F3} ms");
         }
 
         private TruncatedNameBuilder CreateTruncatedNameBuilder()
@@ -333,12 +237,67 @@ namespace FolMinder2
 
         private void UpdateContents()
         {
-            _viewModel.Update();
-            if (this.Visibility != Visibility.Visible)
+            Log.Debug($"UpdateContents enter. _isExplicitClose: {_isExplicitClose}");
+            if (_isExplicitClose)
             {
-                this.Show();
+                Log.Debug("UpdateContents leave");
+                return;
             }
+
+            Log.Debug("Set _isActivated to true.");
+            _viewModel.Update();
+
+            var workingArea = ScreenHelper.GetWorkingArea(this);
+            var maxWidth = workingArea.Width * WORKING_AREA_SCALE;
+            var maxHeight = workingArea.Height * WORKING_AREA_SCALE;
+
+            {
+                // this.Show()を呼ばないとMainWindow上のコントロール群が生成されない。
+                // コントロールのうちListViewが生成されないと丁度良いMainWindowのサイズが分からない。
+                // なので、一度、見えないところへ移動してから表示する
+                var left = -32000;
+                var top = -32000;
+                var swp = new SetWindowPosParam(
+                    ChangePosition: true,
+                    Left: left,
+                    Top: top);
+                WinApiHelper.SetWindowPos(this, swp);
+            }
+            this.WindowState = WindowState.Normal;
+            this.Show();
+            {
+                var preferredWidth = GetPreferredWindowWidth();
+                var candWidth = Math.Min(preferredWidth, maxWidth);
+                // MainWindowの高さの自動計算を強制的に適用する。
+                // SizeToContent を Height(XAMLで指定) → Manual →Height と変化させるとWindowの高さが再設定される。
+                this.SizeToContent = SizeToContent.Manual; 
+                this.SizeToContent = SizeToContent.Height;
+                var preferredHeight = this.ActualHeight;
+                var candHeight = Math.Min(preferredHeight, maxHeight);
+                var left = Math.Max(workingArea.Left + (workingArea.Width - candWidth) / 2, workingArea.Left);
+                var top = Math.Max(workingArea.Top + (workingArea.Height - candHeight) / 2, workingArea.Left);
+                Log.Debug($"  SetWindowPos to FitSize. Left: {left:F1}, Top: {top:F1}, Width: {candWidth:F1}, Height: {candHeight:F1}");
+                var swp = new SetWindowPosParam(
+                    ChangePosition: true,
+                    ChangeSize: true,
+                    Left: left,
+                    Top: top,
+                    Width: candWidth,
+                    Height: candHeight);
+                WinApiHelper.SetWindowPos(this, swp);
+            }
+            ListViewHelper.DisableColumnResize(folderListView);
+            AdjustColNameWidth();
+            if (folderListView.Items.Count > 0)
+            {
+                folderListView.SelectedIndex = 0;
+                var firstItem = (ListViewItem)folderListView.ItemContainerGenerator.ContainerFromIndex(0);
+                firstItem.Focus();
+            }
+            StartUpdateDisplayNames();
+
             WinApiHelper.SetForegroundWindow(this);
+            Log.Debug("UpdateContents leave");
         }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -347,15 +306,37 @@ namespace FolMinder2
             return IntPtr.Zero;
         }
 
-        private void viewModel_WindowHideRequired(object? sender, EventArgs e)
+        private async void viewModel_WindowHideRequired(object? sender, EventArgs e)
         {
-            Debug.WriteLine("viewModel_WindowHideRequired");
+            Log.Debug("viewModel_WindowHideRequired enter");
             this.Hide();
+
+            await Task.Yield();
+
+            // 非表示のMainWindowの位置・サイズはWindows APIを使った方が確実 by Copilot
+            var workingArea = ScreenHelper.GetWorkingArea(this);
+            var left = Math.Max(workingArea.Left + (workingArea.Width - this.MinWidth) / 2, workingArea.Left);
+            var top = Math.Max(workingArea.Top + (workingArea.Height - this.MinHeight) / 2, workingArea.Top);
+            var swp = new SetWindowPosParam(
+                ChangeSize: true,
+                ChangePosition: true,
+                Left: left,
+                Top: top,
+                Width: this.MinWidth,
+                Height: this.MinHeight);
+            WinApiHelper.SetWindowPos(this, swp);
+            var rect = WinApiHelper.GetWindowRect(this);
+            Log.Debug($"  GetWindowRect. Left: {rect.Left}, Top: {rect.Top}, Width: {rect.Width}, Height: {rect.Height}");
+            Log.Debug("viewModel_WindowHideRequired leave");
         }
 
         private void Menu_About_Click(object sender, RoutedEventArgs e)
         {
-            Debug.WriteLine("Menu_About_Click");
+            Log.Debug("Menu_About_Click enter");
+            if (_isExplicitClose)
+            {
+                return;
+            }
             EnableModalMenuItem(false);
             try
             {
@@ -365,17 +346,28 @@ namespace FolMinder2
             {
                 EnableModalMenuItem(true);
             }
+            Log.Debug("Menu_About_Click leave");
         }
         private void Menu_Open_Click(object sender, RoutedEventArgs e)
         {
-            Debug.WriteLine("Menu_Open_Click");
-            Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, Width: {this.ActualWidth} Height: {this.ActualHeight}");
+            Log.Debug("Menu_Open_Click enter");
+            if (_isExplicitClose)
+            {
+                return;
+            }
+            var rect = WinApiHelper.GetWindowRect(this);
+            Log.Debug($"  GetWindowRect. Left: {rect.Left}, Top: {rect.Top}, Width: {rect.Width} Height: {rect.Height}");
+            Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, ActualWidth: {this.ActualWidth} ActualHeight: {this.ActualHeight}");
             UpdateContents();
+            Log.Debug("Menu_Open_Click leave");
         }
         private void Menu_Config_Click(object sender, RoutedEventArgs e)
         {
-            Debug.WriteLine("Menu_Config_Click");
-            Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, Width: {this.ActualWidth} Height: {this.ActualHeight}");
+            Log.Debug("Menu_Config_Click enter");
+            if (_isExplicitClose)
+            {
+                return;
+            }
             EnableModalMenuItem(false);
             try
             {
@@ -385,20 +377,32 @@ namespace FolMinder2
             {
                 EnableModalMenuItem(true);
             }
+            Log.Debug("Menu_Config_Click leave");
         }
 
         // メニュー：終了
         private void Menu_Exit_Click(object sender, RoutedEventArgs e)
         {
-            Debug.WriteLine("Menu_Exit_Click");
-            _isExplicitClose = true; // 明示的な終了フラグを立てる
-            Application.Current.Shutdown();
+            Log.Debug("Menu_Exit_Click enter");
+            if (_isExplicitClose)
+            {
+                return;
+            }
+            trayIcon.ContextMenu.IsEnabled = false;
+            this.Shutdown();
+            Log.Debug("Menu_Exit_Click leave");
         }
         private void TrayIcon_LeftMouseDoubleClick(object sender, EventArgs e)
         {
-            Log.Debug("TrayIcon_LeftMouseDoubleClick");
-            Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, Width: {this.ActualWidth} Height: {this.ActualHeight}");
-            UpdateContents();
+            Log.Debug("TrayIcon_LeftMouseDoubleClick enter");
+            if (!_isExplicitClose)
+            {
+                var rect = WinApiHelper.GetWindowRect(this);
+                Log.Debug($"  GetWindowRect. Left: {rect.Left}, Top: {rect.Top}, Width: {rect.Width} Height: {rect.Height}");
+                Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, ActualWidth: {this.ActualWidth} ActualHeight: {this.ActualHeight}");
+                UpdateContents();
+            }
+            Log.Debug("TrayIcon_LeftMouseDoubleClick leave");
         }
 
         private void viewModel_DialogRequired(object? sender, DialogRequiredEventArgs e)
@@ -415,23 +419,35 @@ namespace FolMinder2
             }
             throw new NotImplementedException();
         }
+
         private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (_viewModel.OnKey(e.Key))
+            var key = e.Key;
+            if (key == Key.Space)
             {
-                e.Handled = true;
+                // スペースキーが押されたときの動作
+                // 1. 選択された項目がないならフォーカス行を選択された状態にする
+                // 2. 選択された項目のPin留め状態をトグルする
+                if (folderListView.SelectFocusedListViewItem())
+                {
+                    e.Handled = true;
+                }
+                else if (folderListView.SelectedItem is FolderItemViewModel fivm)
+                {
+                    fivm.Pinned = !fivm.Pinned;
+                    e.Handled = true;
+                }
+                return;
             }
-        }
-
-        private void MoveToCenterOfWorkingArea()
-        {
-            Log.Debug($"{nameof(MoveToCenterOfWorkingArea)} enver");
-            var workingArea = ScreenHelper.GetWorkingArea(this);
-            var left = Math.Max(workingArea.Left + (workingArea.Width - this.ActualWidth) / 2, workingArea.Left);
-            var top = Math.Max(workingArea.Top + (workingArea.Height - this.ActualHeight) / 2, workingArea.Top);
-            this.Left = left;
-            this.Top = top;
-            Log.Debug($"  MainWindow. Left: {this.Left}, Top: {this.Top}, Width: {this.ActualWidth} Height: {this.ActualHeight}");
+            var selectedFivm = folderListView.Items.Cast<FolderItemViewModel>().FirstOrDefault(fivm=> fivm.Key == key);
+            if (selectedFivm is not null)
+            {
+                folderListView.SelectedItem = selectedFivm;
+                folderListView.SetFocus(selectedFivm);
+                _viewModel.OnFolderSelectedByKey();
+                e.Handled = true;
+                return;
+            }
         }
 
         private void EnableModalMenuItem(bool enabled)

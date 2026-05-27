@@ -5,29 +5,26 @@ using System.Text.Json;
 
 namespace FolMinder2.Infrastructure
 {
-    public record FolMinderSettings(
-        string[] PinnedFolders,
-        bool PinSelectedFolder,
-        bool QuickSelect,
-        HotKey HotKey);
+    public class FolMinderSettings
+    {
+        public string[] PinnedFolders { get; set; } = [];
+        public bool PinSelectedFolder { get; set; }
+        public bool QuickSelect { get; set; }
+        public HotKey HotKey { get; set; } = HotKey.Default;
+    }
 
     public interface ISettingsService
     {
-        IReadOnlyList<string> PinnedFolders { get; set; }
-        bool PinSelectedFolder { get; set; }
-        bool QuickSelect { get; set; }
-        HotKey HotKey { get; set; }
+        FolMinderSettings Settings { get; }
         void Save();
     }
 
     public class SettingsService : ISettingsService
     {
         private readonly TagLog<SettingsService> Log = new();
+      
 
-        public IReadOnlyList<string> PinnedFolders { get; set; } = [];
-        public bool PinSelectedFolder { get; set; } = true;
-        public bool QuickSelect { get; set; } = false;
-        public HotKey HotKey { get; set; } = HotKey.Default;
+        public FolMinderSettings Settings { get; }
 
         private string _settingsJsonPath;
 
@@ -37,44 +34,29 @@ namespace FolMinder2.Infrastructure
             var dir = Path.Combine(localAppData, "Hernian", "FolMinder2");
             _settingsJsonPath = Path.Combine(dir, "settings.json");
             Directory.CreateDirectory(dir);
-            try
+            this.Settings = Load();
+            foreach (var path in this.Settings.PinnedFolders)
             {
-                var settings = Load();
-                foreach (var path in settings.PinnedFolders)
-                {
-                    Log.Debug($"Loaded PinnedFolder: {path}");
-                }
-                Log.Debug($"Loaded PinSelectedFoldes: {settings.PinSelectedFolder}");
-                Log.Debug($"Loaded QuickSelect: {settings.QuickSelect}");
-                Log.Debug($"Loaded HotKey: {settings.HotKey}");
-                this.PinnedFolders = settings.PinnedFolders;
-                this.PinSelectedFolder = settings.PinSelectedFolder;
-                this.HotKey = settings.HotKey;
+                Log.Debug($"Loaded PinnedFolder: {path}");
             }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Loading settings error.");
-            }
+            Log.Debug($"Loaded PinSelectedFoldes: {this.Settings.PinSelectedFolder}");
+            Log.Debug($"Loaded QuickSelect: {this.Settings.QuickSelect}");
+            Log.Debug($"Loaded HotKey: {this.Settings.HotKey}");
         }
      
         public void Save()
         {
             try
             {
-                foreach (var path in this.PinnedFolders)
+                foreach (var path in this.Settings.PinnedFolders)
                 {
                     Log.Debug($"Save. PinnedFolder: {path}");
                 }
-                Log.Debug($"Save. PinSelectedFolder: {this.PinSelectedFolder}");
-                Log.Debug($"Save. QuickSelect: {this.QuickSelect}");
-                Log.Debug($"Save. HotKey: {this.HotKey}");
-                var settings = new FolMinderSettings(
-                    PinnedFolders: this.PinnedFolders.ToArray(),
-                    PinSelectedFolder: this.PinSelectedFolder,
-                    QuickSelect: this.QuickSelect,
-                    HotKey: this.HotKey);
+                Log.Debug($"Save. PinSelectedFolder: {this.Settings.PinSelectedFolder}");
+                Log.Debug($"Save. QuickSelect: {this.Settings.QuickSelect}");
+                Log.Debug($"Save. HotKey: {this.Settings.HotKey}");
                 using var stream = new FileStream(_settingsJsonPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                JsonSerializer.Serialize(stream, settings);
+                JsonSerializer.Serialize(stream, this.Settings);
             }
             catch (Exception ex)
             {
@@ -84,13 +66,18 @@ namespace FolMinder2.Infrastructure
 
         private FolMinderSettings Load()
         {
-            using var stream = new FileStream(_settingsJsonPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            var settings= JsonSerializer.Deserialize<FolMinderSettings>(stream);
-            if (settings is null)
+            try
             {
-                throw new InvalidDataException("Missing stored data.");
+                using var stream = new FileStream(_settingsJsonPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                var settings = JsonSerializer.Deserialize<FolMinderSettings>(stream)
+                    ?? throw new InvalidDataException("Missing stored data.");
+                return settings;
             }
-            return settings;
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Loading stored settings.");
+            }
+            return new FolMinderSettings();
         }
     }
 }
