@@ -19,6 +19,8 @@ namespace FolMinder2
     /// </summary>
     public partial class App : Application
     {
+        private const string MUTEX_NAME = "Hernian.FolMinder2.Singleton";
+
         private static ServiceProvider ConfigureServices()
         {
             var services = new ServiceCollection();
@@ -47,8 +49,17 @@ namespace FolMinder2
                 .CreateLogger();
         }
 
+        private static Mutex? _mutex;
+
         private void Application_Startup(object sender, StartupEventArgs e)
         {
+            _mutex = new Mutex(true, MUTEX_NAME, out bool createdNew);
+            if (!createdNew)
+            {
+                Shutdown();
+                return;
+            }
+
             Log.Information("FolMinder2 started.");
             InitializeLog();
             var provider = ConfigureServices();
@@ -60,6 +71,11 @@ namespace FolMinder2
             helper.EnsureHandle();
         }
 
+        private void Application_Exit(object sender, ExitEventArgs e)
+        {
+            _mutex?.ReleaseMutex();
+            _mutex?.Dispose();
+        }
     }
 
 }
