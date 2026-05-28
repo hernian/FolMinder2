@@ -11,6 +11,7 @@
     <Company>Hernian</Company>
     <Copyright>©2026 Hernian &lt;hernianrunner@gmail.com&gt;</Copyright>
     <PackageIcon>64.png</PackageIcon>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -52,5 +53,9 @@
       <PackagePath>\</PackagePath>
     </None>
   </ItemGroup>
+  
+  <Target Name="BuildInstaller" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="pwsh -Command &quot;cd '$(SolutionDir)Installer'; &amp; 'ISCC.exe' FolMinder2.iss&quot;" />
+  </Target>
 
 </Project>
