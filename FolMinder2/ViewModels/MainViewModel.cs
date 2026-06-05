@@ -174,6 +174,7 @@ namespace FolMinder2.ViewModels
                 }
                 this.WindowHideRequired?.Invoke(this, EventArgs.Empty);
                 this.RegisterPinnedFolders();
+                this.Save();
             });
         }
 
@@ -197,6 +198,7 @@ namespace FolMinder2.ViewModels
             {
                 this.WindowHideRequired?.Invoke(this, EventArgs.Empty);
                 this.RegisterPinnedFolders();
+                this.Save();
             });
         }
 
